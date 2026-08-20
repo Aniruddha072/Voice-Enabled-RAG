@@ -39,14 +39,14 @@ Goal: the Hindi config of `ai4bharat/MSMARCO-XI` loaded, both `English_passages`
 
 Goal: chunks embedded and searchable, both languages in one collection.
 
-- [ ] `infrastructure/embeddings/bge_m3_embedder.py`: load once, batch-embed
-- [ ] Decide and document the Qdrant collection schema: vector size, distance metric, payload fields
-- [ ] `infrastructure/vectorstore/qdrant_store.py`: create collection, batched upsert, filtered search
-- [ ] Finish `ingest_dataset.py`: embed every chunk, upsert into Qdrant
-- [ ] Run full ingestion on the working sample, confirm point count matches expected chunk count
-- [ ] Manually query a known Hindi phrase filtered to `language="hi"`, confirm sensible results
-- [ ] Manually query a known English phrase filtered to `language="en"`, confirm sensible results
-- [ ] Commit
+- [x] `infrastructure/embeddings/bge_m3_embedder.py`: load once, batch-embed, CUDA when available (see Decision 2.2)
+- [x] Decide and document the Qdrant collection schema: 1,024-dim, cosine distance, UUID5 point IDs, see Decision 2.3
+- [x] `infrastructure/vectorstore/qdrant_store.py`: create collection, batched upsert, filtered search
+- [x] Finish `ingest_dataset.py`: embed every chunk, upsert into Qdrant. 200-query sample, ~14,429 chunks, see Decision 2.1
+- [x] Run full ingestion on the working sample, confirm point count matches expected chunk count: 14,429 = 14,429
+- [x] Manually query a known Hindi phrase filtered to `language="hi"`, confirm sensible results: known-correct passage returned as top hit, score 0.765
+- [x] Manually query a known English phrase filtered to `language="en"`, confirm sensible results: known-correct passage returned as top hit, score 0.730
+- [x] Commit. Also hit and fixed a real CUDA OOM crash along the way, see issue #1 and Decision 2.2
 
 ## Phase 3: Voice Input
 

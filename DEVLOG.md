@@ -43,3 +43,21 @@ Ended up depending on `huggingface_hub` + `pandas` + `pyarrow` directly instead 
 - One Hindi passage in the sample ran to 4,092 words, a translation outlier. Not a problem for chunking (fixed-size handles it fine), but worth knowing about if anything downstream assumes passages are always short.
 
 **State at end of session:** Phase 1 chunking done and verified against real data. Phase 2 (embeddings and Qdrant indexing) is next.
+
+## 2026-08-20 (continued): Phase 2
+
+Also polished the repo a bit before starting Phase 2: set a real GitHub description and topics, cleaned up an irrelevant auto-added label, and added a standing rule to open a GitHub issue for genuinely significant bugs found along the way.
+
+Phase 2 had a real detour. First throughput benchmark said 6.5 chunks/sec on CPU; that number was wrong; it used 50 identical sentences, which isn't representative. Real varied text measured at roughly 1/sec, confirmed twice. At that rate the 200-query sample would have taken about 4 hours, so we checked whether this machine has a GPU. It does, an RTX 4050 with 6GB VRAM, just sitting unused because the default PyTorch install on Windows is CPU-only. Configured `uv` to pull the CUDA build instead.
+
+First GPU attempt crashed with a CUDA out-of-memory error at batch size 128, tracked as GitHub issue #1. Root cause was an unbounded sequence length letting one long outlier passage blow up an entire batch's memory footprint. Capped `max_seq_length` at 512 and dropped batch size to 32, then the full 200-query / 14,429-chunk run completed in under 5 minutes at a sustained ~54 chunks/sec.
+
+**Phases completed:** Phase 2 (see `docs/phases/phase2.md`)
+
+**Highlights worth remembering:**
+- Never benchmark embedding throughput with identical or near-identical inputs, it does not reflect real varied-text cost. Should have caught this the first time.
+- Check for a GPU before assuming a CPU-only ML pipeline is as fast as it'll get. This one had a 50x speedup sitting unused.
+- GPU memory is a hard ceiling in a way CPU memory usually isn't for this kind of workload; an unbounded sequence length is a real crash risk on a 6GB card, not just a performance concern.
+- Verifying retrieval quality needs a query actually answerable from what's indexed. Testing an arbitrary phrase not covered by the 200-query sample briefly looked like a quality problem; it wasn't, it was a bad test.
+
+**State at end of session:** Phase 2 done, verified, both languages retrieving correctly. Phase 3 (voice input, Sarvam + local whisper) is next.

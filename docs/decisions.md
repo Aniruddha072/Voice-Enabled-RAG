@@ -117,3 +117,39 @@ Reason:
 - Checked file sizes before downloading anything: each language's train parquet is roughly 3.7-4.0GB, validation is roughly 460-495MB. The full validation split alone is 97,941 queries, already far more than a personal project needs to index (this is the "10M+ rows, don't try to ingest all of it" the build plan warns about, just one order of magnitude smaller).
 - 1,000 queries produces about 75,000 chunks total across all three strategies and both languages, see `docs/phases/phase1.md` for the exact counts. That's a size worth embedding and indexing without a long wait, and easy to re-sample larger if Phase 2's actual embedding throughput turns out faster than expected. The final embedding-scale sample size gets decided empirically in Phase 2, not guessed now.
 
+### Decision 2.1
+
+Date: 2026-08-21
+
+Implemented:
+The embedding/indexing sample is 200 queries (fixed seed 42), not the 1,000 queries used for Phase 1's chunking exploration. That's about 14,429 chunks across all three strategies and both languages.
+
+Reason:
+- Decision 1.4 deliberately deferred this number to be measured, not guessed. First real measurement, 50 identical short sentences embedded on CPU at 6.5/sec, turned out to be a bad benchmark: real, varied-length passage text embeds at roughly 1/sec on CPU, confirmed twice independently. At that rate, 1,000 queries (~75,000 chunks) would take over 3 hours and 200 queries alone would take about 4 hours.
+- After switching to GPU (Decision 2.2), 200 queries takes under 5 minutes. 200 was picked before the GPU switch as a CPU-tractable size and kept afterward since it still comfortably covers Phase 5's eval needs: about 54% of queries have a ground-truth passage, so 200 queries yields roughly 108 with one, in the same range as the build plan's own suggested 50-100 test queries per language.
+- Can be raised later with a single flag (`--sample-size`) now that indexing is fast; no reason to do that until a phase actually needs more data than this provides.
+
+### Decision 2.2
+
+Date: 2026-08-21
+
+Implemented:
+Embedding uses CUDA when available (`torch==2.13.0+cu130`) rather than the CPU-only PyTorch build that `sentence-transformers` pulls in by default. `BgeM3Embedder` auto-detects the device. Batch size is 32 and `max_seq_length` is capped at 512 tokens.
+
+Reason:
+- Measured CPU throughput on realistic text at roughly 1 chunk/sec (see Decision 2.1). This machine has an NVIDIA RTX 4050 laptop GPU (6GB VRAM) with working drivers, confirmed via `nvidia-smi`, sitting unused because the default `pip`/`uv` install of `torch` on Windows is CPU-only unless a CUDA-specific index is requested.
+- Configured via `[tool.uv.sources]` pointing `torch` at `https://download.pytorch.org/whl/cu130` for `sys_platform == 'win32'`, rather than a one-off manual `pip install`, so `uv sync` on a fresh checkout gets the GPU build automatically instead of silently falling back to CPU.
+- First attempt at batch size 128 crashed with `CUDA out of memory` partway through the real 200-query run (see issue #1 for the full trace and fix). Root cause: bge-m3's default sequence length is up to 8,192 tokens, so an unbounded outlier passage in the same batch as normal-length chunks forces the whole batch to pad to that outlier's length, and a few such batches exhausted 6GB of VRAM. Capped `max_seq_length` at 512 (this dataset's passages average 54-62 words, see Decision 1.2, so 512 tokens is generous headroom, not a real truncation risk) and dropped batch size to 32. Fixed run sustained about 54 chunks/sec with no further OOM across all 14,429 chunks, a roughly 50x speedup over CPU.
+
+### Decision 2.3
+
+Date: 2026-08-21
+
+Implemented:
+One Qdrant collection (`voicerag`), 1,024-dim vectors, cosine distance. Point IDs are a UUID5 hash of the chunk's own string ID (`uuid.uuid5(NAMESPACE, chunk.id)`), not the chunk ID itself.
+
+Reason:
+- Qdrant requires point IDs to be an unsigned integer or a UUID. This project's chunk IDs are descriptive strings (`"1099705_hi_sentence_window_3_3"`), useful for debugging and traceability, so they're kept in the payload rather than given up to satisfy Qdrant's ID format.
+- Hashing deterministically (not a random UUID) means re-running ingestion on the same chunk upserts the same point instead of creating a duplicate, so `ingest_dataset.py` can be re-run safely.
+- 1,024 dimensions and cosine distance match bge-m3's dense output directly, no projection or normalization step needed beyond what `sentence-transformers` already does internally.
+
