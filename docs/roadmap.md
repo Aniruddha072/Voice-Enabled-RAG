@@ -2,7 +2,7 @@
 
 See [architecture.md](architecture.md) for the system design and [decisions.md](decisions.md) for why specific choices were made. Each phase is meant to be testable on its own before the next one starts.
 
-## Phase 0 — Bootstrap
+## Phase 0: Bootstrap
 
 Goal: a running skeleton, no pipeline logic yet.
 
@@ -14,7 +14,7 @@ Goal: a running skeleton, no pipeline logic yet.
 - [x] Verified: `docker compose up -d` brings up Qdrant and it responds on `:6333`
 - [x] Verified: `uv run python -c "from voicerag.config import settings; print(settings)"` works
 
-## Phase 1 — Data Exploration + Chunking
+## Phase 1: Data Exploration + Chunking
 
 Goal: the `hi` config of `ai4bharat/MSMARCO-XI` loaded, both `English_passages` and `Translated_passages` extracted, chunked three ways.
 
@@ -23,7 +23,7 @@ Goal: the `hi` config of `ai4bharat/MSMARCO-XI` loaded, both `English_passages` 
 - [ ] Unit tests against fixture passages in both languages
 - [ ] Chunk output visually inspected per strategy, per language
 
-## Phase 2 — Embeddings + Vector Indexing
+## Phase 2: Embeddings + Vector Indexing
 
 Goal: chunks embedded and searchable, both languages in one collection.
 
@@ -32,7 +32,7 @@ Goal: chunks embedded and searchable, both languages in one collection.
 - [ ] `ingest_dataset.py` finished (embed + index all three strategies, language as a filterable payload field)
 - [ ] A raw query for a known phrase in either language, filtered to that language, returns sensible passages
 
-## Phase 3 — Voice Input
+## Phase 3: Voice Input
 
 Goal: real speech in either language becomes a text query.
 
@@ -41,7 +41,7 @@ Goal: real speech in either language becomes a text query.
 - [ ] Real recorded test clips in Hindi and English
 - [ ] Speaking a question into a mic produces a correct(ish) transcript from both providers
 
-## Phase 4 — Grounded Generation + Guardrails
+## Phase 4: Grounded Generation + Guardrails
 
 Goal: full pipeline produces a cited, guardrailed answer in the question's own language.
 
@@ -50,7 +50,7 @@ Goal: full pipeline produces a cited, guardrailed answer in the question's own l
 - [ ] `pipeline.py` wiring every stage together
 - [ ] End-to-end: speak a question, get a grounded answer with a citation, or a graceful refusal on low retrieval confidence
 
-## Phase 5 — Harness + Latency Benchmarking
+## Phase 5: Harness + Latency Benchmarking
 
 Goal: proof, not just a demo.
 
@@ -60,7 +60,7 @@ Goal: proof, not just a demo.
 - [ ] `docs/eval/` reports, broken out per language
 - [ ] Real P50/P70/P100 numbers per stage, recall@k per chunking strategy per language, groundedness rate per language
 
-## Phase 6 — Polish, Demo, README
+## Phase 6: Polish, Demo, README
 
 Goal: something worth showing in an interview.
 

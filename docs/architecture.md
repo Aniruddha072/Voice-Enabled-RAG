@@ -1,4 +1,4 @@
-# Voice-Enabled RAG — Architecture
+# Voice-Enabled RAG: Architecture
 
 See [roadmap.md](roadmap.md) for the phased build order and [decisions.md](decisions.md) for the reasoning behind individual choices.
 
@@ -66,7 +66,7 @@ Subpackages under `application/` and `infrastructure/` get created when the phas
 | `VectorStore` | Store and search chunk vectors | Qdrant specifics (client, collection setup) stay out of application code |
 | `LLMProvider` | Turn a query and retrieved passages into an `Answer` | Keeps prompt construction and Groq's request shape out of the orchestrator |
 | Chunking strategies | Split passages into indexable units, one implementation per strategy | The whole point of Phase 1 is comparing them; each needs to be swappable independently |
-| Guardrails | Relevance threshold, unsafe-input check, groundedness check | Pure logic, no external SDK, lives in `application/` rather than behind a provider interface — see Decision 0.3 |
+| Guardrails | Relevance threshold, unsafe-input check, groundedness check | Pure logic, no external SDK, lives in `application/` rather than behind a provider interface. See Decision 0.3. |
 
 ## Vector store layout
 
