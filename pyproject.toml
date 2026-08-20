@@ -7,6 +7,9 @@ dependencies = [
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
     "python-dotenv>=1.0",
+    "huggingface-hub>=0.25",
+    "pandas>=2.0",
+    "pyarrow>=17.0",
 ]
 
 [project.optional-dependencies]
