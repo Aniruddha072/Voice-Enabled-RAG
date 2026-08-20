@@ -45,6 +45,3 @@ qdrant_storage/
 .idea/
 .DS_Store
 Thumbs.db
-
-# Claude Code local state
-.claude/
