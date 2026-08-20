@@ -21,19 +21,19 @@ Goal: a running skeleton, no pipeline logic yet.
 
 ## Phase 1: Data Exploration + Chunking
 
-Goal: the `hi` config of `ai4bharat/MSMARCO-XI` loaded, both `English_passages` and `Translated_passages` extracted, chunked three ways.
+Goal: the Hindi config of `ai4bharat/MSMARCO-XI` loaded, both `English_passages` and `Translated_passages` extracted, chunked three ways.
 
-- [ ] Install `datasets`; pull the `hi` config, `train` split
-- [ ] Explore the schema hands-on: row count, average passage count and length per language, `is_selected` distribution
-- [ ] Pick a manageable working sample size (the full dataset is 10M+ rows)
-- [ ] Finish `domain/entities.py`'s `Chunk` fields against what real data actually looks like
-- [ ] `chunking/fixed_size.py`: fixed-size window, configurable overlap
-- [ ] `chunking/sentence_window.py`: sentence split, overlapping N-sentence windows
-- [ ] `chunking/passage_as_chunk.py`: passage-as-chunk baseline
-- [ ] Unit tests for each chunker against fixture passages in both languages
-- [ ] `scripts/ingest_dataset.py`, chunking pass only: load sample, run all three chunkers, write chunks with metadata to an intermediate file
-- [ ] Spot-check a sample of chunks per strategy per language by hand: windows reasonable, Hindi text intact
-- [ ] Commit
+- [x] Pull the Hindi split. Not via `datasets.load_dataset("hi")`, that config doesn't exist, see Decision 1.1. Downloaded `validation/hinval.parquet` directly instead.
+- [x] Explore the schema hands-on: 97,941 rows, ~10 passages per query, ~46% of queries have zero `is_selected` passages, passage length averages 54 words (EN) / 62 words (HI), see Decision 1.2 and `docs/phases/phase1.md` for the full numbers
+- [x] Pick a manageable working sample size: 1,000 queries, fixed seed, from the validation split rather than train, see Decision 1.4
+- [x] `domain/entities.py`'s `Chunk` fields, unchanged from Phase 0, verified against real data
+- [x] `chunking/fixed_size.py`: fixed-size window, configurable overlap
+- [x] `chunking/sentence_window.py`: sentence split (including the Hindi danda `।`), overlapping N-sentence windows
+- [x] `chunking/passage_as_chunk.py`: passage-as-chunk baseline
+- [x] Unit tests for each chunker against fixture passages in both languages
+- [x] `scripts/ingest_dataset.py`, chunking pass only: load sample, run all three chunkers, write chunks with metadata to `data/processed/chunks_sample.jsonl`
+- [x] Spot-check a sample of chunks per strategy per language by hand: windows reasonable, Hindi text intact
+- [x] Commit
 
 ## Phase 2: Embeddings + Vector Indexing
 

@@ -28,3 +28,18 @@ Moved `.claude/` out of the tracked `.gitignore` and into `.git/info/exclude`, w
 Also corrected course on commit granularity: Phase 0 shipped as five small commits, more granular than `ai-search-chatbot`'s real pattern of roughly one implementation commit plus one docs commit per phase. Not rewriting the pushed history, but sticking to the tighter pattern from here on.
 
 **State at end of session:** plan reconciled, Phase 0 docs updated, ready to start Phase 1.
+
+## 2026-08-21 (continued): Phase 1
+
+Started Phase 1 and immediately hit two real problems the build plan didn't anticipate: `load_dataset("ai4bharat/MSMARCO-XI", "hi", ...)` doesn't work (the repo uses per-language parquet files and a legacy loading script, not per-language configs), and `hf-xet` hung twice partway through the same download. Both documented in Decisions 1.1 and 1.3 rather than papering over them.
+
+Ended up depending on `huggingface_hub` + `pandas` + `pyarrow` directly instead of the `datasets` package, since we're not calling anything from it anymore. Working sample settled at 1,000 queries from the validation split, about 75,000 chunks across all three strategies and both languages once chunked.
+
+**Phases completed:** Phase 1 (see `docs/phases/phase1.md`)
+
+**Highlights worth remembering:**
+- The build plan's exact dataset loading call is wrong. Anyone picking this project back up should read Decision 1.1 before assuming the plan's Tech Stack section is accurate on that point.
+- 46% of queries in this dataset have no `is_selected` passage at all. Worth remembering for Phase 5's golden eval set, it should bootstrap only from rows that do have one.
+- One Hindi passage in the sample ran to 4,092 words, a translation outlier. Not a problem for chunking (fixed-size handles it fine), but worth knowing about if anything downstream assumes passages are always short.
+
+**State at end of session:** Phase 1 chunking done and verified against real data. Phase 2 (embeddings and Qdrant indexing) is next.
