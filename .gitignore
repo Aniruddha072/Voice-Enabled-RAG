@@ -17,9 +17,6 @@ env/
 .env.*
 !.env.example
 
-# uv
-uv.lock
-
 # Testing / coverage
 .pytest_cache/
 .coverage
@@ -48,3 +45,6 @@ qdrant_storage/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Claude Code local state
+.claude/
