@@ -58,3 +58,17 @@ Configuration is one flat `Settings` class in `config.py`, built on `pydantic-se
 Reason:
 - Matches the pattern already proven in `ai-search-chatbot`: one place to look for every setting, with validation and clear startup errors for free from pydantic.
 - Phase 0 only needs four fields (`environment`, `log_level`, `qdrant_url`, `qdrant_collection_name`). Settings for Sarvam, Groq, and the other providers get added to this same class as the phases that need them arrive, not stubbed in ahead of time.
+
+### Decision 0.6
+
+Date: 2026-08-21
+
+Implemented:
+Phase 0 was scoped narrower than the build plan's literal Phase 0 task list in three places, and the code stays as-is rather than being expanded to match the task list word for word.
+
+Reason:
+- The task list asked for `qdrant-client`, `sentence-transformers`, `groq`, `tenacity`, `structlog`, `ruff`, and `mypy` in `pyproject.toml` from day one. None of that code exists yet, so none of those dependencies are installed yet either. They get added in the phase that actually writes code against them. `ai-search-chatbot` was built the same way, its dependencies were added commit by commit, not declared all at once.
+- The task list also asked for a `Guardrail` interface in `domain/interfaces.py`. Still deferred, per Decision 0.3.
+- The task list named the Qdrant collection setting `QDRANT_COLLECTION`. The actual field is `qdrant_collection_name`, picked before this task list surfaced and more descriptive. No reason to rename it just to match.
+- This is the project's own ground rule talking: "core loop before hardening." A task list written in one sitting before any code existed is a plan, not a spec, and the plan itself says not to build ahead of need.
+

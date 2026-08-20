@@ -6,71 +6,111 @@ See [architecture.md](architecture.md) for the system design and [decisions.md](
 
 Goal: a running skeleton, no pipeline logic yet.
 
-- [x] Repo structure (`domain/`, `application/`, `infrastructure/`, `presentation/`)
-- [x] `docker-compose.yml` for Qdrant
-- [x] `.env.example`
-- [x] `pyproject.toml`, `uv.lock`
-- [x] `config.py`
+- [x] Create the repo root, initialize git, add `.gitignore`
+- [x] `pyproject.toml` with Phase 0 dependencies (`pydantic`, `pydantic-settings`, `python-dotenv`). Everything else (`qdrant-client`, `groq`, `tenacity`, `structlog`, embeddings library, `ruff`) gets added in the phase that needs it, see Decision 0.6.
+- [x] `src/voicerag/` package skeleton: `domain/`, `application/`, `infrastructure/`, `presentation/`, each with `__init__.py`
+- [x] `domain/entities.py`: `Query`, `Transcript`, `Chunk`, `RetrievedPassage`, `Answer`, `EvalResult`
+- [x] `domain/interfaces.py`: `SpeechToTextProvider`, `Embedder`, `VectorStore`, `LLMProvider`. `Guardrail` deferred to Phase 4, see Decision 0.3.
+- [x] `config.py`: `environment`, `log_level`, `qdrant_url`, `qdrant_collection_name`. Provider API keys get added when the phase that uses them arrives.
+- [x] `docker-compose.yml` for Qdrant, pinned version, named volume
+- [x] `.env.example`, every variable commented
+- [x] Starter `README.md`
 - [x] Verified: `docker compose up -d` brings up Qdrant and it responds on `:6333`
 - [x] Verified: `uv run python -c "from voicerag.config import settings; print(settings)"` works
+- [x] Initial commits, conventional style
 
 ## Phase 1: Data Exploration + Chunking
 
 Goal: the `hi` config of `ai4bharat/MSMARCO-XI` loaded, both `English_passages` and `Translated_passages` extracted, chunked three ways.
 
-- [ ] `scripts/ingest_dataset.py` (chunking only, no embedding yet)
-- [ ] Fixed-size, sentence-window, and passage-as-chunk strategies implemented
-- [ ] Unit tests against fixture passages in both languages
-- [ ] Chunk output visually inspected per strategy, per language
+- [ ] Install `datasets`; pull the `hi` config, `train` split
+- [ ] Explore the schema hands-on: row count, average passage count and length per language, `is_selected` distribution
+- [ ] Pick a manageable working sample size (the full dataset is 10M+ rows)
+- [ ] Finish `domain/entities.py`'s `Chunk` fields against what real data actually looks like
+- [ ] `chunking/fixed_size.py`: fixed-size window, configurable overlap
+- [ ] `chunking/sentence_window.py`: sentence split, overlapping N-sentence windows
+- [ ] `chunking/passage_as_chunk.py`: passage-as-chunk baseline
+- [ ] Unit tests for each chunker against fixture passages in both languages
+- [ ] `scripts/ingest_dataset.py`, chunking pass only: load sample, run all three chunkers, write chunks with metadata to an intermediate file
+- [ ] Spot-check a sample of chunks per strategy per language by hand: windows reasonable, Hindi text intact
+- [ ] Commit
 
 ## Phase 2: Embeddings + Vector Indexing
 
 Goal: chunks embedded and searchable, both languages in one collection.
 
-- [ ] `bge_m3_embedder.py`
-- [ ] `qdrant_store.py`
-- [ ] `ingest_dataset.py` finished (embed + index all three strategies, language as a filterable payload field)
-- [ ] A raw query for a known phrase in either language, filtered to that language, returns sensible passages
+- [ ] `infrastructure/embeddings/bge_m3_embedder.py`: load once, batch-embed
+- [ ] Decide and document the Qdrant collection schema: vector size, distance metric, payload fields
+- [ ] `infrastructure/vectorstore/qdrant_store.py`: create collection, batched upsert, filtered search
+- [ ] Finish `ingest_dataset.py`: embed every chunk, upsert into Qdrant
+- [ ] Run full ingestion on the working sample, confirm point count matches expected chunk count
+- [ ] Manually query a known Hindi phrase filtered to `language="hi"`, confirm sensible results
+- [ ] Manually query a known English phrase filtered to `language="en"`, confirm sensible results
+- [ ] Commit
 
 ## Phase 3: Voice Input
 
 Goal: real speech in either language becomes a text query.
 
-- [ ] `sarvam_provider.py`
-- [ ] `whisper_local_provider.py`, same interface as Sarvam
-- [ ] Real recorded test clips in Hindi and English
-- [ ] Speaking a question into a mic produces a correct(ish) transcript from both providers
+- [ ] Sarvam account, API key, confirm free credits active
+- [ ] `infrastructure/stt/sarvam_provider.py` implementing `SpeechToTextProvider`
+- [ ] `infrastructure/stt/whisper_local_provider.py` (`faster-whisper`), same interface
+- [ ] Record ~10-15 real Hindi voice clips asking questions from the dataset
+- [ ] Record ~10-15 real English voice clips asking questions from the dataset
+- [ ] Run both providers against every clip, informally compare transcript quality per language
+- [ ] Handle empty transcript, low-confidence result, network/timeout error
+- [ ] Decide the default-provider vs. fallback-trigger condition
+- [ ] Commit
 
 ## Phase 4: Grounded Generation + Guardrails
 
 Goal: full pipeline produces a cited, guardrailed answer in the question's own language.
 
-- [ ] `groq_client.py`
-- [ ] `guardrails.py` (relevance threshold, unsafe-input, groundedness)
-- [ ] `pipeline.py` wiring every stage together
-- [ ] End-to-end: speak a question, get a grounded answer with a citation, or a graceful refusal on low retrieval confidence
+- [ ] Groq API key in `.env`
+- [ ] `infrastructure/llm/groq_client.py`: configurable model/temperature
+- [ ] Grounded system prompt: cite the source passage, answer in the question's language, refuse when context is insufficient
+- [ ] `application/guardrails.py`, and decide then whether the three checks share enough shape for a `Guardrail` interface, see Decision 0.3:
+  - [ ] Off-topic / relevance-threshold check against top retrieval score
+  - [ ] Unsafe-input pre-check via a short Groq classification call
+  - [ ] Groundedness post-check, lexical-overlap heuristic first
+  - [ ] Groundedness post-check, Groq judge call, only if the heuristic isn't enough
+- [ ] `application/pipeline.py`: `VoiceRAGPipeline` wiring STT, input guardrail, embed, retrieve, relevance guardrail, generate, groundedness guardrail
+- [ ] Manual test: Hindi question, verify grounded Hindi answer with citation
+- [ ] Manual test: English question, verify grounded English answer with citation
+- [ ] Manual test: off-topic/unanswerable question, verify graceful refusal
+- [ ] Commit
 
 ## Phase 5: Harness + Latency Benchmarking
 
 Goal: proof, not just a demo.
 
-- [ ] `latency_tracker.py`
-- [ ] `benchmark_latency.py`
-- [ ] `compare_chunking.py`
-- [ ] `docs/eval/` reports, broken out per language
-- [ ] Real P50/P70/P100 numbers per stage, recall@k per chunking strategy per language, groundedness rate per language
+- [ ] `application/latency_tracker.py`: per-stage timer, correlation ID
+- [ ] Wire the tracker into every pipeline stage
+- [ ] `tenacity` retry/backoff on the STT and LLM calls
+- [ ] Timeout budget per stage
+- [ ] Structured logging, one line per stage per query, tagged with correlation ID
+- [ ] Golden eval set from `is_selected == 1` rows, both languages, spot-checked by hand
+- [ ] `scripts/compare_chunking.py`: recall@5 and MRR per strategy, per language
+- [ ] Synthesize test audio (free local TTS) from 50-100 queries per language
+- [ ] `scripts/benchmark_latency.py`: run the synthesized batch through the full pipeline
+- [ ] Save raw results and a summary report to `docs/eval/`
+- [ ] Confirm retrieval latency is sub-200ms, note honestly where any stage isn't
+- [ ] Commit
 
 ## Phase 6: Polish, Demo, README
 
 Goal: something worth showing in an interview.
 
-- [ ] `cli.py`
-- [ ] `streamlit_app.py`, if time allows
-- [ ] README updated with real bilingual numbers from Phase 5
+- [ ] `presentation/cli.py`: interactive voice-in loop, prints transcript, answer, citation, latency
+- [ ] `presentation/streamlit_app.py`, if time allows
+- [ ] Final README: overview, architecture diagram, real per-language numbers from `docs/eval/`, setup, tech-stack rationale, free-tier cost breakdown
+- [ ] `docs/decisions.md` updated with any late calls
 - [ ] Demo recording that switches languages mid-demo
+- [ ] Verify zero-dollar spend against the Sarvam and Groq usage dashboards
+- [ ] Tag a release
 
 ## Stretch (optional, does not block calling the project done)
 
-- [ ] Hybrid retrieval (vector + Qdrant sparse/BM25)
-- [ ] Light cross-encoder reranker
-- [ ] Cross-lingual retrieval experiment: does a Hindi question retrieve relevant English passages, and vice versa, since bge-m3 embeds both into the same space
+- [ ] Sparse/BM25 vectors alongside dense vectors, fused with Reciprocal Rank Fusion
+- [ ] A light cross-encoder reranker over the fused top-K
+- [ ] Cross-lingual retrieval experiment: does a Hindi question retrieve relevant English passages, and vice versa

@@ -25,6 +25,10 @@ See `docs/decisions.md`, Decisions 0.1 through 0.5: package layout, uv over pip,
 
 None blocking. The only friction was Docker Desktop needing a manual start, which isn't a code problem.
 
+## Reconciliation with the build plan (2026-08-21)
+
+The build plan's own Phase 0 task list asked for more than what's above: the full dependency set (`qdrant-client`, `groq`, `tenacity`, `structlog`, an embeddings library, `ruff`) in `pyproject.toml` from the start, a `Guardrail` interface, and a `QDRANT_COLLECTION` setting name. Phase 0 as built stays narrower on all three, see Decision 0.6 for why. The plan (the artifact and `docs/roadmap.md`) was updated to match what was actually built rather than the other way around.
+
 ## Verification
 
 ```
