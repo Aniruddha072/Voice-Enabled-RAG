@@ -13,6 +13,8 @@ dependencies = [
     "sentence-transformers>=3.0",
     "qdrant-client>=1.10",
     "torch>=2.5",
+    "sarvamai>=0.1.30",
+    "faster-whisper>=1.2.1",
 ]
 
 [project.optional-dependencies]
