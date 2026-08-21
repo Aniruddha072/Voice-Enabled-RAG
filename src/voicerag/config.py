@@ -17,5 +17,7 @@ class Settings(BaseSettings):
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection_name: str = "voicerag"
 
+    sarvam_api_key: str = ""
+
 
 settings = Settings()
