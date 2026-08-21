@@ -19,6 +19,9 @@ class Transcript(BaseModel):
     text: str
     language: str
     stt_provider: str
+    # Language-detection confidence from the provider, not a word-level
+    # accuracy score. None if the provider doesn't expose one.
+    confidence: float | None = None
 
 
 class Chunk(BaseModel):

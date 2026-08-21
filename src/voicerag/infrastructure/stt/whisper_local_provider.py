@@ -15,7 +15,7 @@ import asyncio
 from faster_whisper import WhisperModel
 
 from voicerag.domain.entities import Transcript
-from voicerag.domain.interfaces import SpeechToTextProvider
+from voicerag.domain.interfaces import SpeechToTextProvider, SttError
 
 MODEL_SIZE = "small"
 
@@ -28,6 +28,15 @@ class WhisperLocalSttProvider(SpeechToTextProvider):
         return await asyncio.to_thread(self._transcribe_sync, audio_path, language_hint)
 
     def _transcribe_sync(self, audio_path: str, language_hint: str | None) -> Transcript:
-        segments, info = self._model.transcribe(audio_path, language=language_hint)
-        text = "".join(segment.text for segment in segments).strip()
-        return Transcript(text=text, language=info.language, stt_provider="whisper_local")
+        try:
+            segments, info = self._model.transcribe(audio_path, language=language_hint)
+            text = "".join(segment.text for segment in segments).strip()
+        except Exception as e:
+            raise SttError(f"Local transcription failed for {audio_path}: {e}") from e
+
+        return Transcript(
+            text=text,
+            language=info.language,
+            stt_provider="whisper_local",
+            confidence=info.language_probability,
+        )

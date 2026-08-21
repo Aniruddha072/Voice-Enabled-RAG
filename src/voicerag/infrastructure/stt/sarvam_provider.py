@@ -4,11 +4,13 @@ English (Saaras also supports translation, which isn't what we want
 here since retrieval and generation are both language-filtered).
 """
 
+import httpx
 from sarvamai import AsyncSarvamAI
+from sarvamai.core.api_error import ApiError
 
 from voicerag.config import settings
 from voicerag.domain.entities import Transcript
-from voicerag.domain.interfaces import SpeechToTextProvider
+from voicerag.domain.interfaces import SpeechToTextProvider, SttError
 
 MODEL_NAME = "saaras:v3"
 
@@ -24,12 +26,21 @@ class SarvamSttProvider(SpeechToTextProvider):
         if language_hint is not None:
             kwargs["language_code"] = _LANGUAGE_TO_SARVAM[language_hint]
 
-        with open(audio_path, "rb") as audio_file:
-            response = await self._client.speech_to_text.transcribe(
-                file=audio_file, model=MODEL_NAME, mode="transcribe", **kwargs
-            )
+        try:
+            with open(audio_path, "rb") as audio_file:
+                response = await self._client.speech_to_text.transcribe(
+                    file=audio_file, model=MODEL_NAME, mode="transcribe", **kwargs
+                )
+        except (ApiError, httpx.HTTPError) as e:
+            raise SttError(f"Sarvam transcription failed for {audio_path}: {e}") from e
 
         detected = response.language_code or _LANGUAGE_TO_SARVAM.get(language_hint or "", "en-IN")
         language = detected.split("-")[0]
+        text = (response.transcript or "").strip()
 
-        return Transcript(text=response.transcript, language=language, stt_provider="sarvam")
+        return Transcript(
+            text=text,
+            language=language,
+            stt_provider="sarvam",
+            confidence=response.language_probability,
+        )
