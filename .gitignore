@@ -45,3 +45,6 @@ qdrant_storage/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local-only notes (not for GitHub)
+docs/session-handoff.md

@@ -84,6 +84,8 @@ Goal: full pipeline produces a cited, guardrailed answer in the question's own l
 
 Goal: proof, not just a demo.
 
+- [ ] Fix issue #2 first (`chunk_fixed_size`/`chunk_sentence_window` hang forever if `overlap >= window`) before passing any custom window/overlap values during the chunking-strategy comparison below
+
 - [ ] `application/latency_tracker.py`: per-stage timer, correlation ID
 - [ ] Wire the tracker into every pipeline stage
 - [ ] `tenacity` retry/backoff on the STT and LLM calls

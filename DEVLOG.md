@@ -61,3 +61,11 @@ First GPU attempt crashed with a CUDA out-of-memory error at batch size 128, tra
 - Verifying retrieval quality needs a query actually answerable from what's indexed. Testing an arbitrary phrase not covered by the 200-query sample briefly looked like a quality problem; it wasn't, it was a bad test.
 
 **State at end of session:** Phase 2 done, verified, both languages retrieving correctly. Phase 3 (voice input, Sarvam + local whisper) is next.
+
+## 2026-08-20 (continued): commit style correction, one more bug, wrap-up
+
+Revisited the commit granularity rule. The flat "1 feat + 1 docs per phase" pattern used for Phases 0-2 doesn't match how `ai-search-chatbot` actually did it, that project's real per-phase count ranged 2-6 depending on real seams, real bugs, and real mid-phase corrections. Not rewriting the pushed history for Phases 0-2, but applying the finer pattern from Phase 3 on: split by component, separate `chore:` commits for real dependency changes, separate `fix:` commits for bugs, docs commits allowed to land more than once per phase.
+
+Did a deliberate bug-hunting pass across everything built so far before ending the session. Found one real issue: `chunk_fixed_size` and `chunk_sentence_window` both loop forever if `overlap >= window` (step becomes zero or negative, the loop's termination condition never gets hit). Verified with a bounded repro rather than just reading the code and assuming. Not triggered by any current code path, both functions only ever get called with the safe defaults, but a real, reachable defect worth having on record before Phase 5's chunking-parameter comparisons might hit it. Filed as issue #2, not fixed tonight.
+
+**State at end of session:** Phases 0-2 complete, pushed, both languages verified retrieving correctly. One open bug (#2, low urgency). See `docs/session-handoff.md` for exact resume state, environment notes, and what Phase 3 needs first (a Sarvam account and API key, and recording real test voice clips).
