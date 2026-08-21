@@ -69,3 +69,20 @@ Revisited the commit granularity rule. The flat "1 feat + 1 docs per phase" patt
 Did a deliberate bug-hunting pass across everything built so far before ending the session. Found one real issue: `chunk_fixed_size` and `chunk_sentence_window` both loop forever if `overlap >= window` (step becomes zero or negative, the loop's termination condition never gets hit). Verified with a bounded repro rather than just reading the code and assuming. Not triggered by any current code path, both functions only ever get called with the safe defaults, but a real, reachable defect worth having on record before Phase 5's chunking-parameter comparisons might hit it. Filed as issue #2, not fixed tonight.
 
 **State at end of session:** Phases 0-2 complete, pushed, both languages verified retrieving correctly. One open bug (#2, low urgency). See `docs/session-handoff.md` for exact resume state, environment notes, and what Phase 3 needs first (a Sarvam account and API key, and recording real test voice clips).
+
+## 2026-08-21: Phase 3
+
+Got the Sarvam account and API key set up, then built both STT providers. `SarvamSttProvider` wraps the official `sarvamai` SDK, `mode="transcribe"` so a Hindi question stays Hindi text instead of getting translated to English. `WhisperLocalSttProvider` wraps `faster-whisper`, no account needed, though it turned out CUDA wasn't a real option for it: `ctranslate2` needs its own system-level cuBLAS/cuDNN that torch's bundled CUDA libraries don't satisfy, not worth fighting on Windows for clips this short, so it runs CPU-only.
+
+Recorded 25 real test clips, 12 English and 13 Hindi, using actual queries pulled from the 200-query sample already indexed in Qdrant, and ran all of them through both providers. Sarvam came back correct or near-perfect across the board in both languages. Whisper held up fine on English (one clip aside, where it misdetected the language entirely and transcribed an English question in Devanagari script) but never produced a single fully clean Hindi transcript, errors ranged from a few garbled words to one clip that repeated itself. That's a real, repeatable pattern, not a fluke from one bad clip, so Sarvam is now the default provider for both languages and whisper is a true last-resort fallback, not a peer. Filed as issue #3 and Decision 3.1.
+
+Also added proper failure handling: both providers now guard against `None`/empty transcript text, expose a language-detection confidence score, and translate their own network/API errors into one shared `SttError` instead of leaking `httpx` or `sarvamai` exception types up through the interface. Decision 3.2.
+
+**Phases completed:** Phase 3 (see `docs/phases/phase3.md`)
+
+**Highlights worth remembering:**
+- When comparing STT providers, use real recorded clips against real dataset queries, not synthetic text. The Hindi quality gap only showed up because we tested with an actual accent and actual mispronunciations, not clean TTS audio.
+- A provider auto-detecting the wrong language entirely (whisper on the "moscato wine" clip) is a different, worse failure mode than just lower accuracy. Worth watching for specifically, not just spot-checking overall correctness.
+- `ctranslate2` and `torch` don't share CUDA libraries on Windows even when both claim GPU support. Confirmed by hitting a `cublas64_12.dll` load failure despite CUDA already working fine for embeddings.
+
+**State at end of session:** Phase 3 done, pushed. Phase 4 (grounded generation + guardrails, needs a Groq API key) is next.

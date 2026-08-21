@@ -153,3 +153,29 @@ Reason:
 - Hashing deterministically (not a random UUID) means re-running ingestion on the same chunk upserts the same point instead of creating a duplicate, so `ingest_dataset.py` can be re-run safely.
 - 1,024 dimensions and cosine distance match bge-m3's dense output directly, no projection or normalization step needed beyond what `sentence-transformers` already does internally.
 
+### Decision 3.1
+
+Date: 2026-08-21
+
+Implemented:
+Sarvam Saaras v3 (`mode="transcribe"`) is the default speech-to-text provider for both languages. The local faster-whisper provider (`small`, CPU-only) is kept as a last-resort fallback for when Sarvam is unreachable or its free tier is exhausted, not treated as an equally good alternative.
+
+Reason:
+- Ran the same 25 real recorded clips (12 English, 13 Hindi, one mispronounced on purpose) through both providers. Sarvam came back correct or near-perfect on all 25, with only two minor phonetic misses on uncommon words. Whisper's `small` model never produced a fully clean transcript on a single Hindi clip, ranging from several word-level errors to badly garbled output, and on one English clip it misdetected the language entirely and returned Devanagari script instead of English. Full transcripts aren't kept in the repo since they're just test data, but the pattern held across every clip, not one or two.
+- `mode="transcribe"` (Saaras's default) keeps the output in the spoken language instead of translating to English, which matters here since retrieval and generation are both language-filtered, translating Hindi speech to English text would break that chain.
+- The fallback provider runs on CPU only. `ctranslate2` (faster-whisper's backend) needs its own system-level cuBLAS/cuDNN, separate from the CUDA libraries torch bundles for itself, and getting those onto the path on Windows isn't worth it for clips a few seconds long.
+- `Transcript.stt_provider` already records which provider handled a given query, so when the fallback does fire, that should surface, not fail silently: in Phase 5's structured per-stage logging, and in Phase 6's CLI output, not as a mid-conversation confirmation prompt, since a voice-in pipeline shouldn't stop to ask permission before answering. Given whisper's specific weakness on Hindi, the CLI should say more than "fallback used" when it fires on a Hindi query, something closer to a plain-language accuracy warning. Not built yet, tracked as an enhancement for whoever writes `presentation/cli.py`, see issue #3.
+
+### Decision 3.2
+
+Date: 2026-08-21
+
+Implemented:
+Both STT providers normalize their output the same way and share one failure mode. `Transcript` gained a `confidence: float | None` field, populated from whatever language-detection confidence each provider already exposes (Sarvam's `language_probability`, whisper's `TranscriptionInfo.language_probability`). Network, timeout, and provider API errors get caught at the provider boundary and re-raised as one new exception, `SttError`, defined in `domain/interfaces.py` next to `SpeechToTextProvider`.
+
+Reason:
+- Without this, a caller further up the pipeline would need to know about `httpx.HTTPError`, `sarvamai`'s `ApiError` hierarchy, and whatever faster-whisper/ctranslate2 raises internally, three different vocabularies for the same kind of failure. One `SttError` keeps the port abstraction honest: swapping providers should never mean the caller needs new exception-handling code.
+- `SttError` doesn't retry anything itself, it just gives failures a clean, catchable shape. Actual retry/backoff policy is explicitly Phase 5's job (`tenacity` on the STT and LLM calls), not duplicated here.
+- Confidence is language-detection confidence, not a word-level accuracy score, neither provider's REST response exposes true per-word confidence. Documented as such directly on the field rather than implying more precision than it has. Nothing consumes this value yet; Phase 4's guardrails or Phase 6's CLI are the more natural place to decide what "low confidence" should actually do, so it's captured now and acted on later, matching Decision 0.3's approach to `Guardrail`.
+- Empty transcripts (silence, unintelligible audio) aren't treated as an error, the provider succeeded, there was just nothing there. Both providers now guard against `None` and normalize with `.strip()`, so a caller always gets a real string it can safely check with `if not transcript.text`, instead of one provider risking `None` and the other returning untrimmed whitespace.
+

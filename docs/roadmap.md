@@ -52,15 +52,15 @@ Goal: chunks embedded and searchable, both languages in one collection.
 
 Goal: real speech in either language becomes a text query.
 
-- [ ] Sarvam account, API key, confirm free credits active
-- [ ] `infrastructure/stt/sarvam_provider.py` implementing `SpeechToTextProvider`
-- [ ] `infrastructure/stt/whisper_local_provider.py` (`faster-whisper`), same interface
-- [ ] Record ~10-15 real Hindi voice clips asking questions from the dataset
-- [ ] Record ~10-15 real English voice clips asking questions from the dataset
-- [ ] Run both providers against every clip, informally compare transcript quality per language
-- [ ] Handle empty transcript, low-confidence result, network/timeout error
-- [ ] Decide the default-provider vs. fallback-trigger condition
-- [ ] Commit
+- [x] Sarvam account, API key, confirm free credits active
+- [x] `infrastructure/stt/sarvam_provider.py` implementing `SpeechToTextProvider`
+- [x] `infrastructure/stt/whisper_local_provider.py` (`faster-whisper`), same interface, CPU-only, see Decision 3.1
+- [x] Record ~10-15 real Hindi voice clips asking questions from the dataset (13 recorded)
+- [x] Record ~10-15 real English voice clips asking questions from the dataset (12 recorded)
+- [x] Run both providers against every clip, informally compare transcript quality per language: Sarvam correct/near-perfect on all 25, whisper never clean on a single Hindi clip, see Decision 3.1 and issue #3
+- [x] Handle empty transcript, low-confidence result, network/timeout error: both providers normalize to a clean empty string instead of crashing on `None`, `Transcript.confidence` carries language-detection confidence, and provider-specific network/API exceptions get wrapped in one domain-level `SttError`, see Decision 3.2
+- [x] Decide the default-provider vs. fallback-trigger condition: Sarvam default for both languages, whisper-local last-resort fallback only, see Decision 3.1
+- [x] Commit
 
 ## Phase 4: Grounded Generation + Guardrails
 
