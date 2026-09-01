@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     qdrant_collection_name: str = "voicerag"
 
     sarvam_api_key: str = ""
+    groq_api_key: str = ""
 
 
 settings = Settings()
