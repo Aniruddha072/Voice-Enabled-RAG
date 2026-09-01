@@ -3,6 +3,7 @@ guardrails into one voice-in, grounded-answer-out flow.
 """
 
 from voicerag.application.guardrails import Guardrails, check_relevance
+from voicerag.application.latency_tracker import LatencyTracker
 from voicerag.domain.entities import Answer, Query
 from voicerag.domain.interfaces import Embedder, LLMProvider, SpeechToTextProvider, VectorStore
 
@@ -41,28 +42,39 @@ class VoiceRAGPipeline:
         self._guardrails = guardrails
         self._retrieval_limit = retrieval_limit
 
-    async def answer(self, audio_path: str, language_hint: str | None = None) -> Answer:
-        transcript = await self._stt.transcribe(audio_path, language_hint)
+    async def answer(
+        self, audio_path: str, language_hint: str | None = None, tracker: LatencyTracker | None = None
+    ) -> Answer:
+        tracker = tracker or LatencyTracker()
+
+        with tracker.track("stt"):
+            transcript = await self._stt.transcribe(audio_path, language_hint)
         if not transcript.text:
             return _refusal("no_context", transcript.language)
 
-        safety = await self._guardrails.check_input_safety(transcript.text)
+        with tracker.track("input_safety"):
+            safety = await self._guardrails.check_input_safety(transcript.text)
         if not safety.passed:
             return _refusal("unsafe", transcript.language)
 
         query = Query(text=transcript.text, language=transcript.language)
-        vector = (await self._embedder.embed([query.text]))[0]
-        passages = await self._vector_store.search(vector, language=query.language, limit=self._retrieval_limit)
+        with tracker.track("embed"):
+            vector = (await self._embedder.embed([query.text]))[0]
+        with tracker.track("retrieve"):
+            passages = await self._vector_store.search(vector, language=query.language, limit=self._retrieval_limit)
 
-        relevance = check_relevance(passages)
+        with tracker.track("relevance"):
+            relevance = check_relevance(passages)
         if not relevance.passed:
             return _refusal("no_context", query.language)
 
-        answer = await self._llm.generate(query, passages)
+        with tracker.track("generate"):
+            answer = await self._llm.generate(query, passages)
         if answer.refused:
             return answer
 
-        groundedness = await self._guardrails.check_groundedness(answer.text, passages)
+        with tracker.track("groundedness"):
+            groundedness = await self._guardrails.check_groundedness(answer.text, passages)
         if not groundedness.passed:
             return _refusal("no_context", query.language)
 
