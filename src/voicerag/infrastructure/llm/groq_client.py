@@ -10,11 +10,12 @@ this client relies on for reliable citations, see Decision 4.1.
 
 import json
 
-from groq import AsyncGroq
+from groq import APIError, AsyncGroq
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from voicerag.config import settings
 from voicerag.domain.entities import Answer, Query, RetrievedPassage
-from voicerag.domain.interfaces import LLMProvider
+from voicerag.domain.interfaces import LLMError, LLMProvider
 
 MODEL_NAME = "openai/gpt-oss-120b"
 TEMPERATURE = 0.2
@@ -59,19 +60,28 @@ class GroqLLMProvider(LLMProvider):
         self._model = model
         self._temperature = temperature
 
+    @retry(
+        retry=retry_if_exception_type(LLMError),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=0.5, min=0.5, max=4),
+        reraise=True,
+    )
     async def generate(self, query: Query, context: list[RetrievedPassage]) -> Answer:
-        response = await self._client.chat.completions.create(
-            model=self._model,
-            temperature=self._temperature,
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": _build_user_message(query, context)},
-            ],
-            response_format={
-                "type": "json_schema",
-                "json_schema": {"name": "grounded_answer", "strict": True, "schema": _ANSWER_SCHEMA},
-            },
-        )
+        try:
+            response = await self._client.chat.completions.create(
+                model=self._model,
+                temperature=self._temperature,
+                messages=[
+                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "user", "content": _build_user_message(query, context)},
+                ],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {"name": "grounded_answer", "strict": True, "schema": _ANSWER_SCHEMA},
+                },
+            )
+        except APIError as e:
+            raise LLMError(f"Groq generation failed: {e}") from e
         parsed = json.loads(response.choices[0].message.content)
 
         return Answer(

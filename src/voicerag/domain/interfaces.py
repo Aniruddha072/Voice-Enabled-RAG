@@ -44,6 +44,13 @@ class VectorStore(ABC):
     async def search(self, vector: list[float], language: str, limit: int = 5) -> list[RetrievedPassage]: ...
 
 
+class LLMError(Exception):
+    """An LLM provider failed to produce an answer, same reasoning as
+    SttError: one exception type regardless of which SDK raised it,
+    with retry/backoff left to the caller.
+    """
+
+
 class LLMProvider(ABC):
     @abstractmethod
     async def generate(self, query: Query, context: list[RetrievedPassage]) -> Answer: ...
