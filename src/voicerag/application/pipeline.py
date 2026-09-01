@@ -5,10 +5,14 @@ guardrails into one voice-in, grounded-answer-out flow.
 import asyncio
 from typing import Any, Coroutine
 
+import structlog
+
 from voicerag.application.guardrails import Guardrails, check_relevance
 from voicerag.application.latency_tracker import LatencyTracker
 from voicerag.domain.entities import Answer, Query
 from voicerag.domain.interfaces import Embedder, LLMProvider, SpeechToTextProvider, VectorStore
+
+logger = structlog.get_logger()
 
 _REFUSAL_MESSAGES = {
     "unsafe": {
@@ -67,13 +71,30 @@ class VoiceRAGPipeline:
         self._retrieval_limit = retrieval_limit
         self._stage_timeouts = {**DEFAULT_STAGE_TIMEOUTS, **(stage_timeouts or {})}
 
+    def _log_stage(self, tracker: LatencyTracker, stage: str, ok: bool) -> None:
+        duration_ms = tracker.stages[-1].duration_ms
+        logger.info(
+            "stage_complete",
+            correlation_id=tracker.correlation_id,
+            stage=stage,
+            duration_ms=round(duration_ms, 1),
+            ok=ok,
+        )
+
     async def _run_stage(self, tracker: LatencyTracker, stage: str, coro: Coroutine[Any, Any, Any]) -> Any:
         budget = self._stage_timeouts[stage]
-        with tracker.track(stage):
-            try:
-                return await asyncio.wait_for(coro, timeout=budget)
-            except asyncio.TimeoutError as e:
-                raise PipelineTimeoutError(stage, budget) from e
+        ok = True
+        try:
+            with tracker.track(stage):
+                try:
+                    return await asyncio.wait_for(coro, timeout=budget)
+                except asyncio.TimeoutError as e:
+                    raise PipelineTimeoutError(stage, budget) from e
+        except Exception:
+            ok = False
+            raise
+        finally:
+            self._log_stage(tracker, stage, ok)
 
     async def answer(
         self, audio_path: str, language_hint: str | None = None, tracker: LatencyTracker | None = None
@@ -100,6 +121,7 @@ class VoiceRAGPipeline:
 
         with tracker.track("relevance"):
             relevance = check_relevance(passages)
+        self._log_stage(tracker, "relevance", ok=True)
         if not relevance.passed:
             return _refusal("no_context", query.language)
 

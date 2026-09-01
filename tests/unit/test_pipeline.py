@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+import structlog.testing
 
 from voicerag.application.guardrails import GuardrailResult
 from voicerag.application.latency_tracker import LatencyTracker
@@ -98,3 +99,18 @@ async def test_answer_raises_pipeline_timeout_error_when_a_stage_exceeds_its_bud
         await pipeline.answer("fake.wav")
 
     assert exc_info.value.stage == "stt"
+
+
+@pytest.mark.asyncio
+async def test_answer_logs_one_line_per_stage_with_correlation_id():
+    pipeline = _build_pipeline()
+    tracker = LatencyTracker(correlation_id="test-corr-id")
+
+    with structlog.testing.capture_logs() as captured:
+        await pipeline.answer("fake.wav", tracker=tracker)
+
+    stages_logged = [entry["stage"] for entry in captured]
+    assert stages_logged == ["stt", "input_safety", "embed", "retrieve", "relevance", "generate", "groundedness"]
+    assert all(entry["correlation_id"] == "test-corr-id" for entry in captured)
+    assert all(entry["ok"] is True for entry in captured)
+    assert all("duration_ms" in entry for entry in captured)
