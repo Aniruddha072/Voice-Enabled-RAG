@@ -7,6 +7,7 @@ here since retrieval and generation are both language-filtered).
 import httpx
 from sarvamai import AsyncSarvamAI
 from sarvamai.core.api_error import ApiError
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from voicerag.config import settings
 from voicerag.domain.entities import Transcript
@@ -21,6 +22,12 @@ class SarvamSttProvider(SpeechToTextProvider):
     def __init__(self) -> None:
         self._client = AsyncSarvamAI(api_subscription_key=settings.sarvam_api_key)
 
+    @retry(
+        retry=retry_if_exception_type(SttError),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=0.5, min=0.5, max=4),
+        reraise=True,
+    )
     async def transcribe(self, audio_path: str, language_hint: str | None = None) -> Transcript:
         kwargs = {}
         if language_hint is not None:
