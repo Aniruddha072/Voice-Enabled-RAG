@@ -16,6 +16,7 @@ dependencies = [
     "sarvamai>=0.1.30",
     "faster-whisper>=1.2.1",
     "groq>=1.7.0",
+    "tenacity>=9.1.4",
 ]
 
 [project.optional-dependencies]
