@@ -2,6 +2,9 @@
 guardrails into one voice-in, grounded-answer-out flow.
 """
 
+import asyncio
+from typing import Any, Coroutine
+
 from voicerag.application.guardrails import Guardrails, check_relevance
 from voicerag.application.latency_tracker import LatencyTracker
 from voicerag.domain.entities import Answer, Query
@@ -17,6 +20,26 @@ _REFUSAL_MESSAGES = {
         "hi": "क्षमा करें, इस प्रश्न का उत्तर देने के लिए मेरे पास पर्याप्त जानकारी नहीं है।",
     },
 }
+
+# Generous headroom over real measured stage durations (see
+# docs/phases/phase4.md's verification numbers), enough to comfortably
+# cover the STT and LLM providers' own retry/backoff attempts without
+# the timeout budget fighting the retry policy.
+DEFAULT_STAGE_TIMEOUTS = {
+    "stt": 20.0,
+    "input_safety": 15.0,
+    "embed": 15.0,
+    "retrieve": 10.0,
+    "generate": 30.0,
+    "groundedness": 30.0,
+}
+
+
+class PipelineTimeoutError(Exception):
+    def __init__(self, stage: str, budget_seconds: float) -> None:
+        super().__init__(f"stage '{stage}' exceeded its {budget_seconds}s timeout budget")
+        self.stage = stage
+        self.budget_seconds = budget_seconds
 
 
 def _refusal(kind: str, language: str) -> Answer:
@@ -34,6 +57,7 @@ class VoiceRAGPipeline:
         llm: LLMProvider,
         guardrails: Guardrails,
         retrieval_limit: int = 5,
+        stage_timeouts: dict[str, float] | None = None,
     ) -> None:
         self._stt = stt
         self._embedder = embedder
@@ -41,40 +65,51 @@ class VoiceRAGPipeline:
         self._llm = llm
         self._guardrails = guardrails
         self._retrieval_limit = retrieval_limit
+        self._stage_timeouts = {**DEFAULT_STAGE_TIMEOUTS, **(stage_timeouts or {})}
+
+    async def _run_stage(self, tracker: LatencyTracker, stage: str, coro: Coroutine[Any, Any, Any]) -> Any:
+        budget = self._stage_timeouts[stage]
+        with tracker.track(stage):
+            try:
+                return await asyncio.wait_for(coro, timeout=budget)
+            except asyncio.TimeoutError as e:
+                raise PipelineTimeoutError(stage, budget) from e
 
     async def answer(
         self, audio_path: str, language_hint: str | None = None, tracker: LatencyTracker | None = None
     ) -> Answer:
         tracker = tracker or LatencyTracker()
 
-        with tracker.track("stt"):
-            transcript = await self._stt.transcribe(audio_path, language_hint)
+        transcript = await self._run_stage(tracker, "stt", self._stt.transcribe(audio_path, language_hint))
         if not transcript.text:
             return _refusal("no_context", transcript.language)
 
-        with tracker.track("input_safety"):
-            safety = await self._guardrails.check_input_safety(transcript.text)
+        safety = await self._run_stage(
+            tracker, "input_safety", self._guardrails.check_input_safety(transcript.text)
+        )
         if not safety.passed:
             return _refusal("unsafe", transcript.language)
 
         query = Query(text=transcript.text, language=transcript.language)
-        with tracker.track("embed"):
-            vector = (await self._embedder.embed([query.text]))[0]
-        with tracker.track("retrieve"):
-            passages = await self._vector_store.search(vector, language=query.language, limit=self._retrieval_limit)
+        vector = (await self._run_stage(tracker, "embed", self._embedder.embed([query.text])))[0]
+        passages = await self._run_stage(
+            tracker,
+            "retrieve",
+            self._vector_store.search(vector, language=query.language, limit=self._retrieval_limit),
+        )
 
         with tracker.track("relevance"):
             relevance = check_relevance(passages)
         if not relevance.passed:
             return _refusal("no_context", query.language)
 
-        with tracker.track("generate"):
-            answer = await self._llm.generate(query, passages)
+        answer = await self._run_stage(tracker, "generate", self._llm.generate(query, passages))
         if answer.refused:
             return answer
 
-        with tracker.track("groundedness"):
-            groundedness = await self._guardrails.check_groundedness(answer.text, passages)
+        groundedness = await self._run_stage(
+            tracker, "groundedness", self._guardrails.check_groundedness(answer.text, passages)
+        )
         if not groundedness.passed:
             return _refusal("no_context", query.language)
 

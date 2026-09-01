@@ -1,8 +1,10 @@
+import asyncio
+
 import pytest
 
 from voicerag.application.guardrails import GuardrailResult
 from voicerag.application.latency_tracker import LatencyTracker
-from voicerag.application.pipeline import VoiceRAGPipeline
+from voicerag.application.pipeline import PipelineTimeoutError, VoiceRAGPipeline
 from voicerag.domain.entities import Answer, Chunk, RetrievedPassage, Transcript
 from voicerag.domain.interfaces import Embedder, LLMProvider, SpeechToTextProvider, VectorStore
 
@@ -10,6 +12,12 @@ from voicerag.domain.interfaces import Embedder, LLMProvider, SpeechToTextProvid
 class FakeSttProvider(SpeechToTextProvider):
     async def transcribe(self, audio_path, language_hint=None):
         return Transcript(text="test query", language="en", stt_provider="fake")
+
+
+class SlowSttProvider(SpeechToTextProvider):
+    async def transcribe(self, audio_path, language_hint=None):
+        await asyncio.sleep(1)
+        return Transcript(text="too slow", language="en", stt_provider="slow")
 
 
 class FakeEmbedder(Embedder):
@@ -73,3 +81,20 @@ async def test_answer_works_without_a_tracker():
     answer = await pipeline.answer("fake.wav")
     assert answer.refused is False
     assert answer.text == "a grounded answer"
+
+
+@pytest.mark.asyncio
+async def test_answer_raises_pipeline_timeout_error_when_a_stage_exceeds_its_budget():
+    pipeline = VoiceRAGPipeline(
+        stt=SlowSttProvider(),
+        embedder=FakeEmbedder(),
+        vector_store=FakeVectorStore(),
+        llm=FakeLLMProvider(),
+        guardrails=FakeGuardrails(),
+        stage_timeouts={"stt": 0.05},
+    )
+
+    with pytest.raises(PipelineTimeoutError) as exc_info:
+        await pipeline.answer("fake.wav")
+
+    assert exc_info.value.stage == "stt"
