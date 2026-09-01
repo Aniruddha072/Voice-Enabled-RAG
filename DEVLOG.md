@@ -86,3 +86,22 @@ Also added proper failure handling: both providers now guard against `None`/empt
 - `ctranslate2` and `torch` don't share CUDA libraries on Windows even when both claim GPU support. Confirmed by hitting a `cublas64_12.dll` load failure despite CUDA already working fine for embeddings.
 
 **State at end of session:** Phase 3 done, pushed. Phase 4 (grounded generation + guardrails, needs a Groq API key) is next.
+
+## 2026-09-01: Phase 4
+
+Got a Groq API key and picked up where Phase 3 left off. First surprise: the build plan's named model, Llama 3.3 70B, wasn't in Groq's model list for this account at all anymore. Turns out Groq deprecated it off the free tier back in August, moved it to enterprise-only pricing. Switched to `openai/gpt-oss-120b`, Groq's own recommended migration target, still free, and it supports strict JSON schema output, which made getting reliable citations and a refusal flag back much simpler than parsing free text.
+
+Built `groq_client.py` first and verified it against three real retrieval-backed queries (English, the same question in Hindi, and a deliberately unanswerable one), all three worked correctly on the first real test.
+
+Then built `application/guardrails.py`: relevance-threshold check, unsafe-input check (using Groq's small dedicated prompt-guard model instead of asking the big model to classify safety), and a groundedness check that tries a cheap lexical-overlap heuristic first and only calls Groq to judge when that's ambiguous. Wired all of it into `application/pipeline.py`.
+
+Real bug found the moment the full pipeline actually ran: a known-good, real in-sample Hindi query got wrongly refused by the relevance guardrail. The 0.6 threshold had only been calibrated against one query pair, all in English. Recalibrated properly with real known-good and known-absent queries in both languages instead of one lucky example each, landed on 0.53, checked the math on whether splitting it by language would do better (it wouldn't, checked against the actual calibration data). Also found that the groundedness heuristic isn't equally trustworthy across languages, Hindi's function words inflate lexical overlap even on a wrong answer, which is exactly why the heuristic defers to a judge call when it's not confident.
+
+**Phases completed:** Phase 4 (see `docs/phases/phase4.md`)
+
+**Highlights worth remembering:**
+- Query a provider's actual model list before writing code against a model name from an older plan. Docs and plans go stale faster than expected.
+- One calibration example per language is not calibration. The relevance-threshold bug only showed up once the full pipeline ran against a real, known-good query in the *other* language from the one used to pick the threshold.
+- A heuristic that works well in one language can be actively misleading in another for reasons specific to that language's grammar, not just "needs more tuning." Hindi's postpositions inflating lexical overlap is a good example, worth remembering for any future text-similarity heuristic in this project.
+
+**State at end of session:** Phase 4 done, pushed. Phase 5 (harness + latency benchmarking) is next, and issue #2's chunking bug needs fixing first, per the standing note in the roadmap.

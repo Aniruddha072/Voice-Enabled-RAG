@@ -66,19 +66,19 @@ Goal: real speech in either language becomes a text query.
 
 Goal: full pipeline produces a cited, guardrailed answer in the question's own language.
 
-- [ ] Groq API key in `.env`
-- [ ] `infrastructure/llm/groq_client.py`: configurable model/temperature
-- [ ] Grounded system prompt: cite the source passage, answer in the question's language, refuse when context is insufficient
-- [ ] `application/guardrails.py`, and decide then whether the three checks share enough shape for a `Guardrail` interface, see Decision 0.3:
-  - [ ] Off-topic / relevance-threshold check against top retrieval score
-  - [ ] Unsafe-input pre-check via a short Groq classification call
-  - [ ] Groundedness post-check, lexical-overlap heuristic first
-  - [ ] Groundedness post-check, Groq judge call, only if the heuristic isn't enough
-- [ ] `application/pipeline.py`: `VoiceRAGPipeline` wiring STT, input guardrail, embed, retrieve, relevance guardrail, generate, groundedness guardrail
-- [ ] Manual test: Hindi question, verify grounded Hindi answer with citation
-- [ ] Manual test: English question, verify grounded English answer with citation
-- [ ] Manual test: off-topic/unanswerable question, verify graceful refusal
-- [ ] Commit
+- [x] Groq API key in `.env`
+- [x] `infrastructure/llm/groq_client.py`: configurable model/temperature, uses `openai/gpt-oss-120b` not the originally planned Llama 3.3 70B, see Decision 4.1
+- [x] Grounded system prompt: cite the source passage, answer in the question's language, refuse when context is insufficient. Verified against a known English query, the same query in Hindi, and a deliberately unanswerable query, all three behaved correctly.
+- [x] `application/guardrails.py`, decided no `Guardrail` interface is needed, see Decision 0.3 and Decision 4.2:
+  - [x] Off-topic / relevance-threshold check against top retrieval score, threshold 0.53, calibrated from real in-sample vs. genuinely absent queries in both languages after catching a real false-rejection bug at the first threshold tried, see Decision 4.2
+  - [x] Unsafe-input pre-check, `meta-llama/llama-prompt-guard-2-86m` on Groq, not a generic classification prompt on the big model
+  - [x] Groundedness post-check, lexical-overlap heuristic first
+  - [x] Groundedness post-check, Groq judge call, only if the heuristic isn't enough, needed more often for Hindi than English, see Decision 4.2
+- [x] `application/pipeline.py`: `VoiceRAGPipeline` wiring STT, input guardrail, embed, retrieve, relevance guardrail, generate, groundedness guardrail
+- [x] Manual test: Hindi question, verify grounded Hindi answer with citation
+- [x] Manual test: English question, verify grounded English answer with citation
+- [x] Manual test: off-topic/unanswerable question, verify graceful refusal
+- [x] Commit
 
 ## Phase 5: Harness + Latency Benchmarking
 
