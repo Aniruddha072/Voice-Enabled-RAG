@@ -37,6 +37,7 @@ docker-compose.override.yml
 *.mp3
 data/raw/
 data/processed/
+data/eval/
 models/
 qdrant_storage/
 
