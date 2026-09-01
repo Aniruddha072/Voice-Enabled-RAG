@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from voicerag.config import settings
 from voicerag.domain.entities import RetrievedPassage
 
-RELEVANCE_THRESHOLD = 0.6
+RELEVANCE_THRESHOLD = 0.53
 
 PROMPT_GUARD_MODEL = "meta-llama/llama-prompt-guard-2-86m"
 UNSAFE_THRESHOLD = 0.5
@@ -47,8 +47,14 @@ class GuardrailResult(BaseModel):
 def check_relevance(passages: list[RetrievedPassage]) -> GuardrailResult:
     """Off-topic check: is the top retrieval score even close to the
     question, before spending an LLM call trying to answer it.
-    Threshold picked from a real relevant query (~0.73) against a
-    couple of clearly off-topic ones (~0.44-0.53).
+    Threshold picked from real data across both languages, not one
+    lucky example, see Decision 4.2: known in-sample queries scored as
+    low as 0.401 (English) and 0.552 (Hindi), genuinely absent topics
+    scored as high as 0.523 (English) and 0.508 (Hindi). 0.53 sits in
+    the narrow window that separates almost every real case correctly;
+    one English outlier (0.401) sits below even the absent range and
+    no single threshold recovers it without also passing real off-topic
+    queries elsewhere.
     """
     if not passages or passages[0].score < RELEVANCE_THRESHOLD:
         return GuardrailResult(passed=False, reason="top retrieval score below relevance threshold")
