@@ -17,6 +17,7 @@ dependencies = [
     "faster-whisper>=1.2.1",
     "groq>=1.7.0",
     "tenacity>=9.1.4",
+    "structlog>=26.1.0",
 ]
 
 [project.optional-dependencies]

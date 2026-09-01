@@ -1937,6 +1937,15 @@ wheels = [
 ]
 
 [[package]]
+name = "structlog"
+version = "26.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5e/89/b4a0bcfdf4f71a3dea31379f095929613d7e4528a0996bca6aa964cd0dca/structlog-26.1.0.tar.gz", hash = "sha256:f63a716cbd1b1291cf7661de7794b455acfa4c43c5bcf1630e6ad5ddc1adb3b7", size = 1459881, upload-time = "2026-06-06T07:33:39.348Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a9/18/489c97b834dfff9cf2fc2507cede4bcd4b11e67f84bc462acd1992496f86/structlog-26.1.0-py3-none-any.whl", hash = "sha256:e081a26d6c373e6d201eca24eede26d8ffab07f88f477822e679183428d3d91e", size = 73764, upload-time = "2026-06-06T07:33:38.046Z" },
+]
+
+[[package]]
 name = "sympy"
 version = "1.14.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2241,6 +2250,7 @@ dependencies = [
     { name = "qdrant-client" },
     { name = "sarvamai" },
     { name = "sentence-transformers" },
+    { name = "structlog" },
     { name = "tenacity" },
     { name = "torch", version = "2.13.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
     { name = "torch", version = "2.13.0+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "sys_platform == 'win32'" },
@@ -2269,6 +2279,7 @@ requires-dist = [
     { name = "qdrant-client", specifier = ">=1.10" },
     { name = "sarvamai", specifier = ">=0.1.30" },
     { name = "sentence-transformers", specifier = ">=3.0" },
+    { name = "structlog", specifier = ">=26.1.0" },
     { name = "tenacity", specifier = ">=9.1.4" },
     { name = "torch", marker = "sys_platform != 'win32'", specifier = ">=2.5" },
     { name = "torch", marker = "sys_platform == 'win32'", specifier = ">=2.5", index = "https://download.pytorch.org/whl/cu130" },
