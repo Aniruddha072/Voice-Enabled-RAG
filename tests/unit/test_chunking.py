@@ -1,3 +1,5 @@
+import pytest
+
 from voicerag.application.chunking.fixed_size import chunk_fixed_size
 from voicerag.application.chunking.passage_as_chunk import chunk_passage_as_chunk
 from voicerag.application.chunking.sentence_window import chunk_sentence_window, split_sentences
@@ -58,3 +60,23 @@ def test_sentence_window_splits_long_passage_with_overlap():
 
 def test_sentence_window_empty_text_returns_the_input():
     assert chunk_sentence_window("", window_sentences=3, overlap_sentences=1) == [""]
+
+
+def test_fixed_size_raises_when_overlap_equals_window():
+    with pytest.raises(ValueError):
+        chunk_fixed_size(LONG_EN, window_words=10, overlap_words=10)
+
+
+def test_fixed_size_raises_when_overlap_exceeds_window():
+    with pytest.raises(ValueError):
+        chunk_fixed_size(LONG_EN, window_words=10, overlap_words=15)
+
+
+def test_sentence_window_raises_when_overlap_equals_window():
+    with pytest.raises(ValueError):
+        chunk_sentence_window(LONG_EN, window_sentences=3, overlap_sentences=3)
+
+
+def test_sentence_window_raises_when_overlap_exceeds_window():
+    with pytest.raises(ValueError):
+        chunk_sentence_window(LONG_EN, window_sentences=3, overlap_sentences=5)

@@ -21,6 +21,11 @@ def split_sentences(text: str) -> list[str]:
 
 
 def chunk_sentence_window(text: str, window_sentences: int = 3, overlap_sentences: int = 1) -> list[str]:
+    if overlap_sentences >= window_sentences:
+        raise ValueError(
+            f"overlap_sentences ({overlap_sentences}) must be less than window_sentences ({window_sentences})"
+        )
+
     sentences = split_sentences(text)
     if len(sentences) <= window_sentences:
         return [text]

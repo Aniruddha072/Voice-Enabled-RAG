@@ -10,6 +10,9 @@ fair, see docs/decisions.md Decision 1.2.
 
 
 def chunk_fixed_size(text: str, window_words: int = 150, overlap_words: int = 30) -> list[str]:
+    if overlap_words >= window_words:
+        raise ValueError(f"overlap_words ({overlap_words}) must be less than window_words ({window_words})")
+
     words = text.split()
     if len(words) <= window_words:
         return [text]
