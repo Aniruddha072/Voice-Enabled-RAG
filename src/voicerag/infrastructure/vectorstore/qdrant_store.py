@@ -54,13 +54,17 @@ class QdrantStore(VectorStore):
         ]
         await self._client.upsert(collection_name=self._collection_name, points=points)
 
-    async def search(self, vector: list[float], language: str, limit: int = 5) -> list[RetrievedPassage]:
+    async def search(
+        self, vector: list[float], language: str, limit: int = 5, chunking_strategy: str | None = None
+    ) -> list[RetrievedPassage]:
+        must = [qmodels.FieldCondition(key="language", match=qmodels.MatchValue(value=language))]
+        if chunking_strategy is not None:
+            must.append(qmodels.FieldCondition(key="chunking_strategy", match=qmodels.MatchValue(value=chunking_strategy)))
+
         results = await self._client.query_points(
             collection_name=self._collection_name,
             query=vector,
-            query_filter=qmodels.Filter(
-                must=[qmodels.FieldCondition(key="language", match=qmodels.MatchValue(value=language))]
-            ),
+            query_filter=qmodels.Filter(must=must),
             limit=limit,
         )
         return [

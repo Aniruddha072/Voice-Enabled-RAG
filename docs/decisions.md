@@ -207,3 +207,15 @@ Reason:
 - The groundedness heuristic (lexical word overlap) needed the same kind of real-data check. A genuinely fabricated English answer scored 0.318 overlap against its source, clearly low. The same kind of fabricated answer in Hindi scored 0.682, because Hindi's frequent postpositions and function words inflate raw word overlap regardless of whether the actual content matches. `check_groundedness` uses a wide ambiguous zone (0.35-0.75) that defers to a Groq judge call instead of trusting the heuristic alone, and in testing, the Hindi fabricated case correctly fell into that zone and got caught by the judge, while a clean grounded answer in either language scored high enough (0.85-1.0) to skip the judge call entirely.
 - Not filed as a GitHub issue: caught and fixed during development, before any of it was committed, so nothing broken ever shipped. Documented here instead, the same way Phase 2's misleading-benchmark and bad-test-query mistakes were handled.
 
+### Decision 5.1
+
+Date: 2026-09-01
+
+Implemented:
+Ran the three chunking strategies head-to-head against the golden eval set (101 queries per language with a real ground-truth passage), recall@5 and MRR, per strategy, per language. `QdrantStore.search` gained an optional `chunking_strategy` filter to make this possible, results written to `docs/eval/chunking_comparison.md`.
+
+Reason (what the numbers actually showed):
+- `passage_as_chunk` and `fixed_size` performed essentially identically: 0.950 recall@5 / 0.614 MRR (English), 0.871 / 0.537-0.539 (Hindi). Expected, and already predicted in Decision 1.2: this dataset's passages average 50-62 words, well under `fixed_size`'s 150-word window, so it rarely actually splits anything and ends up doing almost the same thing as `passage_as_chunk` for most passages.
+- `sentence_window` was the weakest of the three on every measure: 0.941 / 0.589 (English), 0.822 / 0.530 (Hindi). Splitting a passage into smaller sentence-level windows can separate the sentence that actually answers a query from the surrounding context that makes it rank well, which is a real, plausible mechanism for the gap, not just noise, it held across both languages consistently.
+- Hindi trailed English on every strategy (recall down 7-12 points, MRR down 5-8 points), consistent with everything else observed this project about Hindi retrieval and generation being measurably harder than English on this dataset, not a new finding, just confirmed again here.
+- Not yet acted on: `application/pipeline.py`'s retrieval doesn't filter by chunking strategy at all right now, it searches across all three strategies' chunks mixed together. Whether to change that, and if so to which strategy, is a real design decision left open for discussion rather than decided unilaterally here, see the open question raised with the user after this comparison ran.
