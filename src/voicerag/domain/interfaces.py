@@ -41,7 +41,9 @@ class VectorStore(ABC):
     async def upsert(self, chunks: list[Chunk], vectors: list[list[float]]) -> None: ...
 
     @abstractmethod
-    async def search(self, vector: list[float], language: str, limit: int = 5) -> list[RetrievedPassage]: ...
+    async def search(
+        self, vector: list[float], language: str, limit: int = 5, chunking_strategy: str | None = None
+    ) -> list[RetrievedPassage]: ...
 
 
 class LLMError(Exception):

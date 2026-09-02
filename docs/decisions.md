@@ -219,3 +219,16 @@ Reason (what the numbers actually showed):
 - `sentence_window` was the weakest of the three on every measure: 0.941 / 0.589 (English), 0.822 / 0.530 (Hindi). Splitting a passage into smaller sentence-level windows can separate the sentence that actually answers a query from the surrounding context that makes it rank well, which is a real, plausible mechanism for the gap, not just noise, it held across both languages consistently.
 - Hindi trailed English on every strategy (recall down 7-12 points, MRR down 5-8 points), consistent with everything else observed this project about Hindi retrieval and generation being measurably harder than English on this dataset, not a new finding, just confirmed again here.
 - Not yet acted on: `application/pipeline.py`'s retrieval doesn't filter by chunking strategy at all right now, it searches across all three strategies' chunks mixed together. Whether to change that, and if so to which strategy, is a real design decision left open for discussion rather than decided unilaterally here, see the open question raised with the user after this comparison ran.
+
+### Decision 5.2
+
+Date: 2026-09-02
+
+Implemented:
+`application/pipeline.py`'s retrieval now filters to `chunking_strategy="passage_as_chunk"` only, resolving the open question from Decision 5.1. `fixed_size` and `sentence_window` chunks stay indexed in Qdrant, just unused at query time.
+
+Reason:
+- `passage_as_chunk` ties `fixed_size` on every measure in Decision 5.1's numbers and beats `sentence_window` on all of them, so among strategies with equal retrieval quality, the simplest one wins: no windowing or overlap logic, no `ValueError` edge cases like issue #2's.
+- Looked at whether a hybrid, multi-granularity retrieval (querying more than one strategy and merging results) was worth it instead of picking one. The research on that technique (Mix-of-Granularity, UMG-RAG) earns its complexity when different granularities are genuinely complementary, one wins for some queries, another wins for others. That's not this data: `sentence_window` is uniformly worse across every metric in both languages, not a strategy that wins on a query subset. There's no complementary signal to fuse, so a hybrid would add query-time cost for no measurable benefit.
+- Didn't re-run ingestion to strip the unused `fixed_size`/`sentence_window` chunks from Qdrant. No cost pressure (self-hosted, local, free per Decision 0.4) and re-ingesting is a bigger, riskier change than a query-time filter for a benefit that's purely cosmetic right now.
+- Dense+sparse hybrid retrieval (BM25 alongside the vector search) is a separate, real idea that could plausibly help Hindi's consistently lower numbers specifically, but that's a different scope than chunking-strategy selection and wasn't decided here.

@@ -38,6 +38,12 @@ DEFAULT_STAGE_TIMEOUTS = {
     "groundedness": 30.0,
 }
 
+# Chosen over fixed_size/sentence_window per the real recall@5/MRR
+# comparison in Decision 5.1: passage_as_chunk ties fixed_size on every
+# measure and beats sentence_window on all of them, so it wins on
+# simplicity alone.
+RETRIEVAL_CHUNKING_STRATEGY = "passage_as_chunk"
+
 
 class PipelineTimeoutError(Exception):
     def __init__(self, stage: str, budget_seconds: float) -> None:
@@ -116,7 +122,12 @@ class VoiceRAGPipeline:
         passages = await self._run_stage(
             tracker,
             "retrieve",
-            self._vector_store.search(vector, language=query.language, limit=self._retrieval_limit),
+            self._vector_store.search(
+                vector,
+                language=query.language,
+                limit=self._retrieval_limit,
+                chunking_strategy=RETRIEVAL_CHUNKING_STRATEGY,
+            ),
         )
 
         with tracker.track("relevance"):

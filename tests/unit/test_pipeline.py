@@ -30,7 +30,27 @@ class FakeVectorStore(VectorStore):
     async def upsert(self, chunks, vectors):
         pass
 
-    async def search(self, vector, language, limit=5):
+    async def search(self, vector, language, limit=5, chunking_strategy=None):
+        chunk = Chunk(
+            id="c1",
+            text="relevant passage text",
+            language=language,
+            source_query_id="q1",
+            is_selected=True,
+            chunking_strategy="passage_as_chunk",
+        )
+        return [RetrievedPassage(chunk=chunk, score=0.9)]
+
+
+class RecordingVectorStore(VectorStore):
+    def __init__(self):
+        self.search_kwargs = None
+
+    async def upsert(self, chunks, vectors):
+        pass
+
+    async def search(self, vector, language, limit=5, chunking_strategy=None):
+        self.search_kwargs = {"language": language, "limit": limit, "chunking_strategy": chunking_strategy}
         chunk = Chunk(
             id="c1",
             text="relevant passage text",
@@ -74,6 +94,22 @@ async def test_answer_records_a_timing_for_every_stage():
 
     stage_names = [s.stage for s in tracker.stages]
     assert stage_names == ["stt", "input_safety", "embed", "retrieve", "relevance", "generate", "groundedness"]
+
+
+@pytest.mark.asyncio
+async def test_answer_retrieves_only_passage_as_chunk_strategy():
+    vector_store = RecordingVectorStore()
+    pipeline = VoiceRAGPipeline(
+        stt=FakeSttProvider(),
+        embedder=FakeEmbedder(),
+        vector_store=vector_store,
+        llm=FakeLLMProvider(),
+        guardrails=FakeGuardrails(),
+    )
+
+    await pipeline.answer("fake.wav")
+
+    assert vector_store.search_kwargs["chunking_strategy"] == "passage_as_chunk"
 
 
 @pytest.mark.asyncio
