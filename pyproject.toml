@@ -18,6 +18,7 @@ dependencies = [
     "groq>=1.7.0",
     "tenacity>=9.1.4",
     "structlog>=26.1.0",
+    "piper-tts>=1.7.0",
 ]
 
 [project.optional-dependencies]
