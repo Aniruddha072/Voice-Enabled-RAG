@@ -84,15 +84,15 @@ Goal: full pipeline produces a cited, guardrailed answer in the question's own l
 
 Goal: proof, not just a demo.
 
-- [ ] Fix issue #2 first (`chunk_fixed_size`/`chunk_sentence_window` hang forever if `overlap >= window`) before passing any custom window/overlap values during the chunking-strategy comparison below
+- [x] Fix issue #2 first (`chunk_fixed_size`/`chunk_sentence_window` hang forever if `overlap >= window`) before passing any custom window/overlap values during the chunking-strategy comparison below
 
-- [ ] `application/latency_tracker.py`: per-stage timer, correlation ID
-- [ ] Wire the tracker into every pipeline stage
-- [ ] `tenacity` retry/backoff on the STT and LLM calls
-- [ ] Timeout budget per stage
-- [ ] Structured logging, one line per stage per query, tagged with correlation ID
-- [ ] Golden eval set from `is_selected == 1` rows, both languages, spot-checked by hand
-- [ ] `scripts/compare_chunking.py`: recall@5 and MRR per strategy, per language
+- [x] `application/latency_tracker.py`: per-stage timer, correlation ID
+- [x] Wire the tracker into every pipeline stage
+- [x] `tenacity` retry/backoff on the STT and LLM calls: Sarvam and Groq only, 3 attempts with exponential backoff, not applied to local whisper (deterministic failures) or the guardrail Groq calls (out of this item's scope)
+- [x] Timeout budget per stage: `asyncio.wait_for` per stage, generous defaults (20-30s) grounded in real measured durations (all well under 1s), raises `PipelineTimeoutError` naming the stage
+- [x] Structured logging, one line per stage per query, tagged with correlation ID: `structlog`, pretty console in development / JSON otherwise, logs on both success and failure
+- [x] Golden eval set from `is_selected == 1` rows, both languages, spot-checked by hand: 101 EN + 101 HI queries, `scripts/build_golden_eval.py`, `data/eval/golden_set.jsonl`
+- [x] `scripts/compare_chunking.py`: recall@5 and MRR per strategy, per language, results in `docs/eval/chunking_comparison.md`, see Decision 5.1. Pipeline retrieval now filters to the winning strategy, `passage_as_chunk`, see Decision 5.2
 - [ ] Synthesize test audio (free local TTS) from 50-100 queries per language
 - [ ] `scripts/benchmark_latency.py`: run the synthesized batch through the full pipeline
 - [ ] Save raw results and a summary report to `docs/eval/`
