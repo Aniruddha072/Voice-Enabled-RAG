@@ -105,3 +105,22 @@ Real bug found the moment the full pipeline actually ran: a known-good, real in-
 - A heuristic that works well in one language can be actively misleading in another for reasons specific to that language's grammar, not just "needs more tuning." Hindi's postpositions inflating lexical overlap is a good example, worth remembering for any future text-similarity heuristic in this project.
 
 **State at end of session:** Phase 4 done, pushed. Phase 5 (harness + latency benchmarking) is next, and issue #2's chunking bug needs fixing first, per the standing note in the roadmap.
+
+## 2026-09-01/02: Phase 5
+
+Fixed issue #2 first, via TDD, before touching anything else: `chunk_fixed_size`/`chunk_sentence_window` hung forever when `overlap >= window`. Then built the latency/reliability harness: a per-stage `LatencyTracker` wired into every stage of `VoiceRAGPipeline.answer()`, `tenacity` retry/backoff on Sarvam and Groq generation specifically, per-stage timeout budgets, and structured `structlog` logging, one line per stage per query.
+
+Built a real golden eval set (101 EN + 101 HI queries with a genuine ground-truth passage) and ran the three chunking strategies against it. `passage_as_chunk` and `fixed_size` tied on recall@5/MRR, `sentence_window` lost on every measure in both languages. Raised the obvious follow-up question rather than deciding it alone: should retrieval filter to one strategy? Researched multi-granularity hybrid retrieval first (it earns its complexity only when strategies are complementary, not when one just loses uniformly, which is what we had), then filtered `pipeline.py` to `passage_as_chunk`.
+
+Synthesized 200 test clips (100 EN + 100 HI) locally and for free with Piper TTS, pulling voice models the same way the rest of this project fetches remote files. Then ran all 200 through the real, live pipeline via `scripts/benchmark_latency.py`, no fakes.
+
+Retrieval latency confirmed sub-200ms cleanly (26ms mean, 32ms P90). Two things looked wrong at first and both turned out to have real, checkable explanations instead of being actual bugs: the `generate` stage's latency was hugely inflated in the full run (5.8s mean vs. 1.3s in a 4-query smoke test), traced to transient Sarvam/Groq free-tier rate limiting under sustained back-to-back load, confirmed by re-running the slowest queries in isolation right after the batch and seeing them return to normal speed. And 24% of queries got refused by a guardrail, traced by re-transcribing a sample of them, partly TTS-mispronunciation-then-STT-mistranscription on uncommon words, partly the same relevance-threshold blind spot already known from Decision 4.2.
+
+**Phases completed:** Phase 5 (see `docs/phases/phase5.md`)
+
+**Highlights worth remembering:**
+- When a benchmark number looks alarming, reproduce it in isolation before writing it down as a finding. The `generate` stage looked 4x slower under load; re-running the exact same queries right after the batch proved it was transient rate limiting, not a regression, in about two minutes of extra work.
+- A synthesized-audio benchmark is not the same claim as a real-human-speech benchmark. TTS mispronouncing an uncommon proper noun and STT then transcribing that mispronunciation is a real, distinct failure mode from anything the pipeline itself does wrong.
+- Multi-granularity hybrid retrieval is only worth building when strategies are genuinely complementary. Checked the actual literature before deciding, then declined it here since `sentence_window` just loses uniformly, there was nothing to fuse.
+
+**State at end of session:** Phase 5 done. Phase 6 (polish, demo, README) is next.

@@ -94,10 +94,10 @@ Goal: proof, not just a demo.
 - [x] Golden eval set from `is_selected == 1` rows, both languages, spot-checked by hand: 101 EN + 101 HI queries, `scripts/build_golden_eval.py`, `data/eval/golden_set.jsonl`
 - [x] `scripts/compare_chunking.py`: recall@5 and MRR per strategy, per language, results in `docs/eval/chunking_comparison.md`, see Decision 5.1. Pipeline retrieval now filters to the winning strategy, `passage_as_chunk`, see Decision 5.2
 - [x] Synthesize test audio (free local TTS) from 50-100 queries per language: 100 EN + 100 HI clips via Piper TTS, see Decision 5.3, manifest at `data/eval/tts_manifest.jsonl`
-- [ ] `scripts/benchmark_latency.py`: run the synthesized batch through the full pipeline
-- [ ] Save raw results and a summary report to `docs/eval/`
-- [ ] Confirm retrieval latency is sub-200ms, note honestly where any stage isn't
-- [ ] Commit
+- [x] `scripts/benchmark_latency.py`: run the synthesized batch through the full pipeline, real providers, no fakes
+- [x] Save raw results and a summary report to `docs/eval/`: `latency_results.jsonl`, `latency_benchmark.md`
+- [x] Confirm retrieval latency is sub-200ms, note honestly where any stage isn't: retrieval is 26.1ms mean / 31.9ms P90, but `generate`/`groundedness` looked inflated by transient free-tier rate limiting under sustained load, and 24% of queries were guardrail-refused due to a mix of TTS/STT drift and a real relevance-threshold limitation, see Decision 5.4
+- [x] Commit
 
 ## Phase 6: Polish, Demo, README
 
