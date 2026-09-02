@@ -232,3 +232,16 @@ Reason:
 - Looked at whether a hybrid, multi-granularity retrieval (querying more than one strategy and merging results) was worth it instead of picking one. The research on that technique (Mix-of-Granularity, UMG-RAG) earns its complexity when different granularities are genuinely complementary, one wins for some queries, another wins for others. That's not this data: `sentence_window` is uniformly worse across every metric in both languages, not a strategy that wins on a query subset. There's no complementary signal to fuse, so a hybrid would add query-time cost for no measurable benefit.
 - Didn't re-run ingestion to strip the unused `fixed_size`/`sentence_window` chunks from Qdrant. No cost pressure (self-hosted, local, free per Decision 0.4) and re-ingesting is a bigger, riskier change than a query-time filter for a benefit that's purely cosmetic right now.
 - Dense+sparse hybrid retrieval (BM25 alongside the vector search) is a separate, real idea that could plausibly help Hindi's consistently lower numbers specifically, but that's a different scope than chunking-strategy selection and wasn't decided here.
+
+### Decision 5.3
+
+Date: 2026-09-02
+
+Implemented:
+Test audio for the latency benchmark is synthesized locally with Piper TTS (`en_US-lessac-medium` for English, `hi_IN-pratham-medium` for Hindi), not recorded by hand. `scripts/synthesize_test_audio.py` takes the first 100 golden-set queries per language, writes one WAV per query under `data/eval/audio/<language>/`, and a manifest (`data/eval/tts_manifest.jsonl`) mapping each clip back to its query id and text, ready for `benchmark_latency.py` to consume.
+
+Reason:
+- Recording 100 clips per language by hand (like Phase 3's 25) isn't practical at this volume. Piper is free, runs fully on CPU with no API dependency, and both required voices exist as first-party Piper voices, so no per-clip cost and no rate limit to worry about.
+- Voice models are pulled with `huggingface_hub.hf_hub_download` from `rhasspy/piper-voices`, not Piper's own auto-download, keeping the same remote-file-fetching pattern used everywhere else in this project (Decision 1.1, 1.3).
+- Verified for real before trusting the batch: spot-checked 6 random clips across both languages, each had a sane duration for its query length and genuine non-silent audio in its first samples, not silence or a corrupt file.
+- These are synthesized voices reading golden-set query text, not real human speech, so this benchmark measures STT-on-synthetic-audio-through-full-pipeline latency, not real-world STT accuracy the way Phase 3's hand-recorded clips did. That's an intentional, honest limitation of this specific benchmark, not a substitute for Phase 3's provider comparison.

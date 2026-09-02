@@ -93,7 +93,7 @@ Goal: proof, not just a demo.
 - [x] Structured logging, one line per stage per query, tagged with correlation ID: `structlog`, pretty console in development / JSON otherwise, logs on both success and failure
 - [x] Golden eval set from `is_selected == 1` rows, both languages, spot-checked by hand: 101 EN + 101 HI queries, `scripts/build_golden_eval.py`, `data/eval/golden_set.jsonl`
 - [x] `scripts/compare_chunking.py`: recall@5 and MRR per strategy, per language, results in `docs/eval/chunking_comparison.md`, see Decision 5.1. Pipeline retrieval now filters to the winning strategy, `passage_as_chunk`, see Decision 5.2
-- [ ] Synthesize test audio (free local TTS) from 50-100 queries per language
+- [x] Synthesize test audio (free local TTS) from 50-100 queries per language: 100 EN + 100 HI clips via Piper TTS, see Decision 5.3, manifest at `data/eval/tts_manifest.jsonl`
 - [ ] `scripts/benchmark_latency.py`: run the synthesized batch through the full pipeline
 - [ ] Save raw results and a summary report to `docs/eval/`
 - [ ] Confirm retrieval latency is sub-200ms, note honestly where any stage isn't
